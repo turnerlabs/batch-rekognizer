@@ -6,6 +6,11 @@ import zipfile
 import pandas as pd
 import datetime
 import shutil
+import sys
+import logging
+import rds_config
+import pymysql
+import csv
 
 def recogniseCelebs(srcBucket,srcKey):
     client = boto3.client('rekognition')
@@ -51,7 +56,7 @@ def recogniseCelebs(srcBucket,srcKey):
                 #To add millisec to the timeformat
                 mili = '000'
                 ID = os.path.basename(imgFile)
-                imageName = format(os.path.basename(imgFile))
+                imageName = str(format(os.path.basename(imgFile)))
 
                 #Get the seconds information of the frame
                 time = float(ID.split("_",1)[0])
@@ -65,8 +70,8 @@ def recogniseCelebs(srcBucket,srcKey):
                 iso = strTime+":"+mili
                 print imageName
                 for i in range (0,len(response['CelebrityFaces'])):
-                    celebName = response['CelebrityFaces'][i]['Name']
-                    confidence = float(response['CelebrityFaces'][i]['MatchConfidence'])
+                    celebName = str(response['CelebrityFaces'][i]['Name'])
+                    confidence = response['CelebrityFaces'][i]['MatchConfidence']
                     df_toAppend = pd.DataFrame([[videoName,imageName,iso,time,celebName,confidence]],columns=colNames)
                     df = df.append(df_toAppend)
     df.reset_index(inplace=True,drop=True)
@@ -77,9 +82,46 @@ def recogniseCelebs(srcBucket,srcKey):
     name = str(srcKey.rsplit("/",1)[0]+"/"+"AWS_result.csv")
     object = s3.Bucket(srcBucket).put_object(Body = open(resultFileName), Key = name)
     print 'AWS_result.csv created and uploaded to s3'
+    insertIntoTable(resultFileName)
+
+def insertIntoTable(csvResult):
+    #rds settings
+    rds_host  = rds_config.db_endpoint
+    name = rds_config.db_username
+    password = rds_config.db_password
+    db_name = rds_config.db_name
+
+    logging.basicConfig()
+    logger = logging.getLogger()
+    logger.setLevel(logging.INFO)
+
+    try:
+        conn = pymysql.connect(rds_host, user=name, passwd=password, db=db_name, connect_timeout=5)
+    except:
+        logger.error("ERROR: Unexpected error: Could not connect to MySql instance.")
+        sys.exit()
+
+    logger.info("SUCCESS: Connection to RDS mysql instance succeeded")
+    csv_data = csv.reader(file(csvResult))
+    i=0
+    with conn.cursor() as cur:
+        for row in csv_data:
+            i = i+1
+            if i!=1:
+                try:
+                    print row
+                    cur.execute("INSERT INTO AWSResults VALUES(%s, %s, %s, %s, %s, %s, %s)",row)
+                except Exception as e:
+                    if str(type(e).__name__)=='ProgrammingError' and str(e.args[0])=='1146':
+                        cur.execute("create table AWSResults ( ColIndex BIGINT,VideoName VARCHAR(255),ImageName VARCHAR(255),ISO VARCHAR(255), TimeSt FLOAT,Celebrities VARCHAR(255),MatchConfidence FLOAT)")
+                        cur.execute("INSERT INTO AWSResults VALUES(%s, %s, %s, %s, %s, %s, %s)",row)
+        #close the connection to the database.
+        conn.commit()
+        cur.close()
+
 
 
 if __name__ == '__main__':
     srcBucket = str(os.environ.get('BUCKET'))
-    srcKey = str(os.environ.get('FILE'))
+    srcKey = str(os.environ.get('AWSFILE'))
     recogniseCelebs(srcBucket,srcKey)
