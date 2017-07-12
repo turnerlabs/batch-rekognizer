@@ -16,6 +16,7 @@ def batchRekognizer(srcKey,srcBucket):
     rekognition = boto3.client('rekognition')
     s3 = boto3.resource('s3')
     localFilename = '/tmp/{}'.format(os.path.basename(srcKey))
+    conn = RDSconnection()
     try:
         s3.Bucket(srcBucket).download_file(srcKey,localFilename)
     except botocore.exceptions.ClientError as e:
@@ -56,14 +57,37 @@ def batchRekognizer(srcKey,srcBucket):
                     except:
                         pass
                     iso = strTime+":"+mili
-                    recogniseCelebs(rekognition,imgBytes,videoName,imageName,iso,time)
-                    getLabels(rekognition,imgBytes,videoName,imageName,iso,time)
+                    celebFileName = recogniseCelebs(rekognition,imgBytes,videoName,imageName,iso,time,conn)
+                    labelFileName = getLabels(rekognition,imgBytes,videoName,imageName,iso,time,conn)
     except Exception as e:
         print e
 
-def recogniseCelebs(rekognition,imgBytes,videoName,imageName,iso,time):
-    colNames = ['VideoName','ImageName','ISO','TimeStamp','Celebrities','MatchConfidence']
+    conn.close()
+
+def RDSconnection():
+    rds_host  = rds_config.db_endpoint
+    name = rds_config.db_username
+    password = rds_config.db_password
+    db_name = rds_config.db_name
+
+    logging.basicConfig()
+    logger = logging.getLogger()
+    logger.setLevel(logging.INFO)
+
+    try:
+        conn = pymysql.connect(rds_host, user=name, passwd=password, db=db_name, connect_timeout=5)
+    except Exception as e:
+        print e
+        logger.error("ERROR: Unexpected error: Could not connect to MySql instance.")
+        sys.exit()
+
+    logger.info("SUCCESS: Connection to RDS mysql instance succeeded")
+    return conn
+
+def recogniseCelebs(rekognition,imgBytes,videoName,imageName,iso,time,conn):
+    colNames = ['VideoName','ImageName','ISO','TimeStamp','Celebrities','MatchConfidence','HeightBox','LeftBox','TopBox','WidthBox']
     df = pd.DataFrame(columns=colNames)
+    curr = conn.cursor()
     response = rekognition.recognize_celebrities(
         Image={
             'Bytes': imgBytes,
@@ -72,7 +96,11 @@ def recogniseCelebs(rekognition,imgBytes,videoName,imageName,iso,time):
     for i in range(0,len(response['CelebrityFaces'])):
         celebName = response['CelebrityFaces'][i]['Name']
         confidence = float(response['CelebrityFaces'][i]['MatchConfidence'])
-        df_toAppend = pd.DataFrame([[videoName,imageName,iso,time,celebName.encode('utf-8'),confidence]],columns=colNames)
+        height = float(response['CelebrityFaces'][i]['Face']['BoundingBox']['Height'])
+        left = float(response['CelebrityFaces'][i]['Face']['BoundingBox']['Left'])
+        top= float(response['CelebrityFaces'][i]['Face']['BoundingBox']['Top'])
+        width= float(response['CelebrityFaces'][i]['Face']['BoundingBox']['Width'])
+        df_toAppend = pd.DataFrame([[videoName,imageName,iso,time,celebName.encode('utf-8'),confidence,height,left,top,width]],columns=colNames)
         df = df.append(df_toAppend)
 
     df.reset_index(inplace=True,drop=True)
@@ -85,9 +113,20 @@ def recogniseCelebs(rekognition,imgBytes,videoName,imageName,iso,time):
         with open("%s"%fileName,"w+") as f:
             df.to_csv(f,header=True,index=False)
 
-def getLabels(rekognition,imgBytes,videoName,imageName,iso,time):
+    for i in range(0,len(df.index)):
+        try:
+            curr.execute("INSERT INTO AWSCelebResults VALUES(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",(df.iloc[i]["VideoName"],df.iloc[i]["ImageName"],df.iloc[i]["ISO"],float(df.iloc[i]["TimeStamp"]),df.iloc[i]["Celebrities"],float(df.iloc[i]["MatchConfidence"]),float(df.iloc[i]["HeightBox"]),float(df.iloc[i]["LeftBox"]),float(df.iloc[i]["TopBox"]),float(df.iloc[i]["WidthBox"])))
+        except Exception as e:
+            print e.args[1]
+            if str(type(e).__name__)=='ProgrammingError' and str(e.args[0])=='1146':
+                curr.execute("create table AWSCelebResults ( VideoName VARCHAR(255),ImageName VARCHAR(255),ISO VARCHAR(255), TimeStamp FLOAT,Celebrities VARCHAR(255),MatchConfidence FLOAT,HeightBox FLOAT,LeftBox FLOAT,TopBox FLOAT,WidthBox FLOAT, PRIMARY KEY (VideoName,TimeStamp,Celebrities))")
+                curr.execute("INSERT INTO AWSCelebResults VALUES(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",(df.iloc[i]["VideoName"],df.iloc[i]["ImageName"],df.iloc[i]["ISO"],float(df.iloc[i]["TimeStamp"]),df.iloc[i]["Celebrities"],float(df.iloc[i]["MatchConfidence"]),float(df.iloc[i]["HeightBox"]),float(df.iloc[i]["LeftBox"]),float(df.iloc[i]["TopBox"]),float(df.iloc[i]["WidthBox"])))
+        conn.commit()
+
+def getLabels(rekognition,imgBytes,videoName,imageName,iso,time,conn):
     colNames = ['VideoName','ImageName','ISO','TimeStamp','Labels','Confidence']
     df = pd.DataFrame(columns=colNames)
+    curr = conn.cursor()
     response = rekognition.detect_labels(
         Image={
             'Bytes': imgBytes,
@@ -108,6 +147,17 @@ def getLabels(rekognition,imgBytes,videoName,imageName,iso,time):
     else:
         with open("%s"%fileName,"w+") as f:
             df.to_csv(f,header=True,index=False)
+
+
+    for i in range(0,len(df.index)):
+        try:
+            curr.execute("INSERT INTO AWSLabelResults VALUES(%s, %s, %s, %s, %s, %s)",(df.iloc[i]["VideoName"],df.iloc[i]["ImageName"],df.iloc[i]["ISO"],float(df.iloc[i]["TimeStamp"]),df.iloc[i]["Labels"],float(df.iloc[i]["Confidence"])))
+        except Exception as e:
+            print e.args[1]
+            if str(type(e).__name__)=='ProgrammingError' and str(e.args[0])=='1146':
+                curr.execute("create table AWSLabelResults ( VideoName VARCHAR(255),ImageName VARCHAR(255),ISO VARCHAR(255), TimeStamp FLOAT,Labels VARCHAR(255),Confidence FLOAT, PRIMARY KEY (VideoName,TimeStamp,Labels))")
+                curr.execute("INSERT INTO AWSLabelResults VALUES(%s, %s, %s, %s, %s, %s)",(df.iloc[i]["VideoName"],df.iloc[i]["ImageName"],df.iloc[i]["ISO"],float(df.iloc[i]["TimeStamp"]),df.iloc[i]["Labels"],float(df.iloc[i]["Confidence"])))
+    conn.commit()
 
 if __name__ == '__main__':
     srcBucket = os.environ.get('BUCKET', False)
