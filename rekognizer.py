@@ -80,10 +80,10 @@ def recogniseCelebs(rekognition,imgBytes,videoName,imageName,iso,time):
     print fileName
     if os.path.exists("%s"%fileName):
         with open("%s"%fileName,"a") as f:
-            df.to_csv(f,header=False)
+            df.to_csv(f,header=False,index=False)
     else:
         with open("%s"%fileName,"w+") as f:
-            df.to_csv(f,header=True)
+            df.to_csv(f,header=True,index=False)
 
 def getLabels(rekognition,imgBytes,videoName,imageName,iso,time):
     colNames = ['VideoName','ImageName','ISO','TimeStamp','Labels','Confidence']
@@ -104,10 +104,10 @@ def getLabels(rekognition,imgBytes,videoName,imageName,iso,time):
     print fileName
     if os.path.exists("%s"%fileName):
         with open("%s"%fileName,"a") as f:
-            df.to_csv(f,header=False)
+            df.to_csv(f,header=False,index=False)
     else:
         with open("%s"%fileName,"w+") as f:
-            df.to_csv(f,header=True)
+            df.to_csv(f,header=True,index=False)
 
 if __name__ == '__main__':
     srcBucket = os.environ.get('BUCKET', False)
