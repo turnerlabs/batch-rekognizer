@@ -60,7 +60,7 @@ def recogniseCelebs(srcBucket,srcKey):
                     imageName = format(os.path.basename(imgFile))
 
                     #Get the seconds information of the frame
-                    time = float(ID.split("_",1)[0])
+                    time = float(ID.split("_",1)[0]) - 1
                     iso = str(datetime.timedelta(seconds=time))
                     strTime = iso.rsplit(".",1)[0]
                     try:
@@ -102,7 +102,8 @@ def insertIntoTable(csvResult):
 
     try:
         conn = pymysql.connect(rds_host, user=name, passwd=password, db=db_name, connect_timeout=5)
-    except:
+    except Exception as e:
+        print e
         logger.error("ERROR: Unexpected error: Could not connect to MySql instance.")
         sys.exit()
 
@@ -120,6 +121,7 @@ def insertIntoTable(csvResult):
                     if str(type(e).__name__)=='ProgrammingError' and str(e.args[0])=='1146':
                         cur.execute("create table AWSResults ( ColIndex BIGINT,VideoName VARCHAR(255),ImageName VARCHAR(255),ISO VARCHAR(255), TimeSt FLOAT,Celebrities VARCHAR(255),MatchConfidence FLOAT)")
                         cur.execute("INSERT INTO AWSResults VALUES(%s, %s, %s, %s, %s, %s, %s)",row)
+                    print e
         #close the connection to the database.
         conn.commit()
         cur.close()
@@ -131,3 +133,4 @@ if __name__ == '__main__':
     if srcBucket == False or srcKey == False:
         print "Must Provide ${BUCKET} and ${FILE}"
         sys.exit()
+    recogniseCelebs(srcBucket, srcKey)
