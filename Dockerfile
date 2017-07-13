@@ -1,7 +1,6 @@
-from turnerlabs/celebs_aws_base
+from turnerlabs/celebs_aws_base:0.2.0
 
-ADD celebrities_aws.py /opt/app/
+ADD *.py /opt/app/
 
-# run the API 
-CMD [ "python", "/opt/app/celebrities_aws.py" ]
-
+# run the API
+CMD [ "python", "/opt/app/rekognizer.py" ]

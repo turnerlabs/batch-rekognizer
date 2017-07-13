@@ -1,7 +1,8 @@
 FROM python:2.7
 
 #install dependencies
-RUN pip install boto3
-RUN pip install datetime
-RUN pip install botocore
-RUN pip install pandas
+RUN pip install boto3 && \
+    pip install datetime && \
+    pip install botocore && \
+    pip install pandas && \
+    pip install pymysql

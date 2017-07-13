@@ -17,13 +17,16 @@ def batchRekognizer(srcKey,srcBucket):
     s3 = boto3.resource('s3')
     localFilename = '/tmp/{}'.format(os.path.basename(srcKey))
     conn = RDSconnection()
+
     try:
         s3.Bucket(srcBucket).download_file(srcKey,localFilename)
     except botocore.exceptions.ClientError as e:
         if e.response['Error']['Code'] == "404":
             print("The object does not exist.")
         else:
-            raise
+            print e
+            raise e
+
     with zipfile.ZipFile(localFilename) as zip_file:
         for member in zip_file.namelist():
             filename = os.path.basename(member)
@@ -93,6 +96,7 @@ def recogniseCelebs(rekognition,imgBytes,videoName,imageName,iso,time,conn):
             'Bytes': imgBytes,
         }
     )
+    print response
     for i in range(0,len(response['CelebrityFaces'])):
         celebName = response['CelebrityFaces'][i]['Name']
         confidence = float(response['CelebrityFaces'][i]['MatchConfidence'])
@@ -132,6 +136,7 @@ def getLabels(rekognition,imgBytes,videoName,imageName,iso,time,conn):
             'Bytes': imgBytes,
         }
     )
+    print response
     for i in range(0,len(response['Labels'])):
         label = response['Labels'][i]['Name']
         confidence = float(response['Labels'][i]['Confidence'])
