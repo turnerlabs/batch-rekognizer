@@ -69,10 +69,12 @@ def batchRekognizer(srcKey,srcBucket):
     conn.commit()
     conn.close()
 
-    object = s3.Bucket(srcBucket).put_object(Body = open(celebFileName), Key="/videos/" + videoName + "_AWS_celebs.csv")
-    print 'AWS_celebs_result.csv created and uploaded to s3'
-    object = s3.Bucket(srcBucket).put_object(Body = open(labelFileName), Key="/videos/" + videoName + "_AWS_labels.csv")
-    print 'AWS_labels_result.csv created and uploaded to s3'
+    key = "/videos/" + videoName + "_AWS_celebs.csv"
+    object = s3.Bucket(srcBucket).put_object(Body=open(celebFileName), Key=key)
+    print key + ' created and uploaded to s3'
+    key = "/videos/" + videoName + "_AWS_labels.csv"
+    object = s3.Bucket(srcBucket).put_object(Body=open(labelFileName), Key=key)
+    print key ' created and uploaded to s3'
 
 def RDSconnection():
     rds_host  = rds_config.db_endpoint
