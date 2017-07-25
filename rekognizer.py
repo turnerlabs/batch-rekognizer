@@ -52,7 +52,7 @@ def batchRekognizer(srcKey,srcBucket):
                     ID = os.path.basename(imgFile)
                     imageName = format(os.path.basename(imgFile))
                     #Get the seconds information of the frame
-                    time = float(ID.split("_",1)[0]) - 1
+                    time = float(ID.split("_",1)[0])
                     iso = str(datetime.timedelta(seconds=time))
                     strTime = iso.rsplit(".",1)[0]
                     try:
