@@ -1,3 +1,10 @@
 .git
-*.json
 envvars
+.DS_Store
+*.pyc
+*.tfvars
+*.tfstate
+*.tfstate.backup
+*.zip
+*.json
+.terraform/
