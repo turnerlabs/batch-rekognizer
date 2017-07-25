@@ -74,7 +74,7 @@ def batchRekognizer(srcKey,srcBucket):
     print key + ' created and uploaded to s3'
     key = "/videos/" + videoName + "_AWS_labels.csv"
     object = s3.Bucket(srcBucket).put_object(Body=open(labelFileName), Key=key)
-    print key ' created and uploaded to s3'
+    print key + ' created and uploaded to s3'
 
 def RDSconnection():
     rds_host  = rds_config.db_endpoint
