@@ -11,7 +11,22 @@ import logging
 import rds_config
 import pymysql
 import csv
+import time
 
+def timing(f):
+    def wrap(*args):
+        time1 = time.time()
+        ret = f(*args)
+        time2 = time.time()
+        print '++++++++++++++++++++ TIMING ++++++++++++++++++++++++++++++++++++'
+        print ''
+        print '%s function took %0.3f m' % (f.func_name, ((time2-time1)/60))
+        print ''
+        print '++++++++++++++++++++ TIMING ++++++++++++++++++++++++++++++++++++'
+        return ret
+    return wrap
+
+@timing
 def batchRekognizer(srcKey,srcBucket):
     rekognition = boto3.client('rekognition')
     s3 = boto3.resource('s3')
@@ -76,6 +91,7 @@ def batchRekognizer(srcKey,srcBucket):
     object = s3.Bucket(srcBucket).put_object(Body=open(labelFileName), Key=key)
     print key + ' created and uploaded to s3'
 
+@timing
 def RDSconnection():
     rds_host  = rds_config.db_endpoint
     name = rds_config.db_username
@@ -96,6 +112,7 @@ def RDSconnection():
     logger.info("SUCCESS: Connection to RDS mysql instance succeeded")
     return conn
 
+@timing
 def recogniseCelebs(rekognition,imgBytes,videoName,imageName,iso,time,conn):
     colNames = ['VideoName','ImageName','ISO','TimeStamp','Celebrities','MatchConfidence','HeightBox','LeftBox','TopBox','WidthBox']
     df = pd.DataFrame(columns=colNames)
@@ -159,6 +176,7 @@ def recogniseCelebs(rekognition,imgBytes,videoName,imageName,iso,time,conn):
 
     return fileName
 
+@timing
 def getLabels(rekognition,imgBytes,videoName,imageName,iso,time,conn):
     colNames = ['VideoName','ImageName','ISO','TimeStamp','Labels','Confidence']
     df = pd.DataFrame(columns=colNames)
