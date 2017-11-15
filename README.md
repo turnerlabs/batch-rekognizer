@@ -1,5 +1,5 @@
-## AWS Celebrity and Object Detection
-# To run locally on mac:
+# AWS Celebrity and Object Detection
+## To run locally on mac:
 Use the 'rds' branch of the repo and not the 'master' branch --
 1. Chop up the images and upload the zip file in s3 using the Video-Slicer code present [here](https://github.com/turnerlabs/video-slicer).
 
@@ -20,7 +20,7 @@ Then run ```python dbconnect.py``` to connect to the DB.
 Finally run the code using ```python celebrity_aws.py```
  
  
-# Batch-rekognizer
+## Batch-rekognizer
 Use all of AWS rekognitions apis in one simple Batch job, which feeds data back into a SQL table.
 
 
